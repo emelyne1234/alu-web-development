@@ -7,6 +7,7 @@ class FIFOCache(BaseCaching):
     """inherits from base_caching"""
     def __init__(self):
         super().__init__()
+        self.key_indexes = []
 
     def put(self, key, item):
         """assign to the dict"""
@@ -19,6 +20,7 @@ class FIFOCache(BaseCaching):
                 del self.cache_data[item_to_be_discarded]
                 print(f"DISCARD:, {item_to_be_discarded}\n")
             self.cache_data[key] = item
+            self.key_indexes.append(key)
 
     def get(self, key):
         """returns the value in dict"""
