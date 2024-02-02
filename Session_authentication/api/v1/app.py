@@ -9,6 +9,7 @@ from flask_cors import (CORS, cross_origin)
 
 
 app = Flask(__name__)
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 app.register_blueprint(app_views)
 CORS(app, resources={r"/api/v1/*": {"origins": "*"}})
 auth = None
@@ -24,24 +25,9 @@ elif getenv('AUTH_TYPE') == 'session_auth':
 elif getenv('AUTH_TYPE') == 'session_exp_auth':
     from api.v1.auth.session_exp_auth import SessionExpAuth
     auth = SessionExpAuth()
-
-
-@app.before_request
-def before_request():
-    """execute before each request
-    """
-    if auth is not None:
-        excluded = ['/api/v1/status/',
-                    '/api/v1/unauthorized/',
-                    '/api/v1/forbidden/',
-                    '/api/v1/auth_session/login/']
-        if auth.require_auth(request.path, excluded):
-            if (auth.authorization_header(request) is None and
-                    auth.session_cookie(request) is None):
-                abort(401)
-            if auth.current_user(request) is None:
-                abort(403)
-            request.current_user = auth.current_user(request)
+elif getenv('AUTH_TYPE') == 'session_db_auth':
+    from api.v1.auth.session_db_auth import SessionDBAuth
+    auth = SessionDBAuth()
 
 
 @app.errorhandler(404)
@@ -53,16 +39,31 @@ def not_found(error) -> str:
 
 @app.errorhandler(401)
 def unauthorized(error) -> str:
-    """ unauthorized
+    """ Request unauthorized
     """
     return jsonify({"error": "Unauthorized"}), 401
 
 
 @app.errorhandler(403)
 def forbidden(error) -> str:
-    """ Forbidden
+    """ Request forbidden
     """
     return jsonify({"error": "Forbidden"}), 403
+
+
+@app.before_request
+def before_request():
+    """ Before request
+    """
+    excluded_paths = ['/api/v1/status/', '/api/v1/unauthorized/',
+                      '/api/v1/forbidden/', '/api/v1/auth_session/login/']
+    if auth and auth.require_auth(request.path, excluded_paths):
+        if (not auth.authorization_header(request) and
+                not auth.session_cookie(request)):
+            abort(401)
+        if not auth.current_user(request):
+            abort(403)
+        request.current_user = auth.current_user(request)
 
 
 if __name__ == "__main__":
